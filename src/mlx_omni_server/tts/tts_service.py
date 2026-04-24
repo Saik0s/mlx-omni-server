@@ -94,6 +94,14 @@ class Qwen3TTSModel(TTSModelAdapter):
         lang_code = extra_params.pop("lang_code", "auto")
         instruct = extra_params.pop("instruct", None)
 
+        # VoiceDesign has no speaker presets — repurpose the OpenAI `voice`
+        # field as the voice description (`instruct`) so clients like
+        # SillyTavern can drive it via their existing speaker UI.
+        if "voicedesign" in (self.path_or_hf_repo or "").lower() and voice:
+            if not instruct:
+                instruct = voice
+            voice = None
+
         generate_audio(
             text=request.input,
             model=self.path_or_hf_repo,
