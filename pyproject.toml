@@ -38,7 +38,7 @@ dependencies = [
     # audio
     "f5-tts-mlx>=0.2.5,<0.3",
     "mlx-whisper>=0.4.1",
-    "mlx-audio>=0.2.4",
+    "mlx-audio>=0.4.2",
     "numba>=0.57.0",
     # images
     "mflux>=0.13.0,<0.14",

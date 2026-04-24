@@ -187,8 +187,9 @@ class ModelsService:
         return model_id.split("/")[0] if "/" in model_id else model_id
 
     def list_models(self, include_details: bool = False) -> ModelList:
-        """List all available models"""
+        """List all available models (mlx-lm LLMs + cached audio repos)."""
         models = []
+        seen: set[str] = set()
         for repo_info, config_data in self.available_models:
             model_kwargs = {
                 "id": repo_info.repo_id,
@@ -197,8 +198,37 @@ class ModelsService:
             }
             if include_details:
                 model_kwargs["details"] = config_data
-            model_instance = Model(**model_kwargs)
-            models.append(model_instance)
+            models.append(Model(**model_kwargs))
+            seen.add(repo_info.repo_id)
+
+        # Advertise cached audio repos (whisper / kokoro / parakeet / tts / ...).
+        # The mlx-lm scanner drops these because they aren't CausalLMs, but the
+        # audio endpoints serve them fine and clients (e.g. TypeWhisper) want
+        # them listed.
+        audio_keywords = (
+            "whisper", "kokoro", "parakeet", "tts", "marvis",
+            "qwen3-tts", "kitten", "dia", "bark", "sesame",
+            "voxcpm", "chatterbox", "spark", "outetts", "vibevoice",
+        )
+        try:
+            for repo_info in self.scanner.cache_info.repos:
+                if repo_info.repo_type != "model":
+                    continue
+                rid = repo_info.repo_id
+                if rid in seen:
+                    continue
+                low = rid.lower()
+                if not any(k in low for k in audio_keywords):
+                    continue
+                models.append(Model(
+                    id=rid,
+                    created=int(repo_info.last_modified),
+                    owned_by=self._get_model_owner(rid),
+                ))
+                seen.add(rid)
+        except Exception as e:
+            logger.warning(f"Audio-repo scan failed: {e}")
+
         return ModelList(data=models)
 
     def get_model(
